@@ -1,0 +1,349 @@
+apiVersion: 1
+groups:
+- orgId: 1
+  name: docker-monitoring
+  folder: Docker Monitoring Alerts
+  interval: 1m
+  rules:
+  - uid: docker-app-down
+    title: Application metrics unavailable
+    condition: C
+    for: 2m
+    noDataState: NoData
+    execErrState: Error
+    labels:
+      severity: critical
+      project: docker-monitoring
+    annotations:
+      summary: Application scrape failing
+      description: Check the service container, /metrics and monitoring-network. Scrape
+        success is not full application health.
+    data:
+    - refId: A
+      relativeTimeRange:
+        from: 600
+        to: 0
+      datasourceUid: monitoring-prometheus
+      model:
+        refId: A
+        expr: 1 - up{job=~"service-a|service-b"}
+        instant: true
+        range: false
+        intervalMs: 15000
+        maxDataPoints: 43200
+    - refId: C
+      relativeTimeRange:
+        from: 0
+        to: 0
+      datasourceUid: __expr__
+      model:
+        refId: C
+        type: threshold
+        expression: A
+        conditions:
+        - type: query
+          evaluator:
+            type: gt
+            params:
+            - 0
+          operator:
+            type: and
+          query:
+            params:
+            - C
+          reducer:
+            type: last
+            params: []
+  - uid: docker-exporter-down
+    title: Infrastructure metrics unavailable
+    condition: C
+    for: 2m
+    noDataState: NoData
+    execErrState: Error
+    labels:
+      severity: critical
+      project: docker-monitoring
+    annotations:
+      summary: Infrastructure exporter scrape failing
+      description: Check exporter logs, host mounts and network connectivity.
+    data:
+    - refId: A
+      relativeTimeRange:
+        from: 600
+        to: 0
+      datasourceUid: monitoring-prometheus
+      model:
+        refId: A
+        expr: 1 - up{job=~"node-exporter|cadvisor"}
+        instant: true
+        range: false
+        intervalMs: 15000
+        maxDataPoints: 43200
+    - refId: C
+      relativeTimeRange:
+        from: 0
+        to: 0
+      datasourceUid: __expr__
+      model:
+        refId: C
+        type: threshold
+        expression: A
+        conditions:
+        - type: query
+          evaluator:
+            type: gt
+            params:
+            - 0
+          operator:
+            type: and
+          query:
+            params:
+            - C
+          reducer:
+            type: last
+            params: []
+  - uid: docker-http-errors
+    title: Application HTTP 5xx errors
+    condition: C
+    for: 2m
+    noDataState: NoData
+    execErrState: Error
+    labels:
+      severity: critical
+      project: docker-monitoring
+    annotations:
+      summary: Repeated application server errors
+      description: More than two 5xx responses over five minutes. Check application
+        logs; counters may be absent before first traffic.
+    data:
+    - refId: A
+      relativeTimeRange:
+        from: 600
+        to: 0
+      datasourceUid: monitoring-prometheus
+      model:
+        refId: A
+        expr: sum by (job) (increase(http_responses_total{job=~"service-a|service-b",status_code=~"5.."}[5m]))
+          or on(job) (0 * sum by (job) (increase(http_responses_total{job=~"service-a|service-b"}[5m])))
+        instant: true
+        range: false
+        intervalMs: 15000
+        maxDataPoints: 43200
+    - refId: C
+      relativeTimeRange:
+        from: 0
+        to: 0
+      datasourceUid: __expr__
+      model:
+        refId: C
+        type: threshold
+        expression: A
+        conditions:
+        - type: query
+          evaluator:
+            type: gt
+            params:
+            - 2
+          operator:
+            type: and
+          query:
+            params:
+            - C
+          reducer:
+            type: last
+            params: []
+  - uid: docker-high-latency
+    title: Application P95 latency
+    condition: C
+    for: 5m
+    noDataState: NoData
+    execErrState: Error
+    labels:
+      severity: warning
+      project: docker-monitoring
+    annotations:
+      summary: Endpoint processing latency above one second
+      description: Inspect application resource use. This histogram measures endpoint
+        body processing, not proxy or end-to-end latency.
+    data:
+    - refId: A
+      relativeTimeRange:
+        from: 600
+        to: 0
+      datasourceUid: monitoring-prometheus
+      model:
+        refId: A
+        expr: histogram_quantile(0.95, sum by (job, le) (rate(http_request_duration_seconds_bucket{job=~"service-a|service-b"}[5m])))
+        instant: true
+        range: false
+        intervalMs: 15000
+        maxDataPoints: 43200
+    - refId: C
+      relativeTimeRange:
+        from: 0
+        to: 0
+      datasourceUid: __expr__
+      model:
+        refId: C
+        type: threshold
+        expression: A
+        conditions:
+        - type: query
+          evaluator:
+            type: gt
+            params:
+            - 1
+          operator:
+            type: and
+          query:
+            params:
+            - C
+          reducer:
+            type: last
+            params: []
+  - uid: docker-high-cpu
+    title: Host CPU pressure
+    condition: C
+    for: 10m
+    noDataState: NoData
+    execErrState: Error
+    labels:
+      severity: warning
+      project: docker-monitoring
+    annotations:
+      summary: Host CPU usage above 85 percent
+      description: Inspect container CPU usage and host processes.
+    data:
+    - refId: A
+      relativeTimeRange:
+        from: 600
+        to: 0
+      datasourceUid: monitoring-prometheus
+      model:
+        refId: A
+        expr: 100 * (1 - avg by (instance) (rate(node_cpu_seconds_total{job="node-exporter",mode="idle"}[5m])))
+        instant: true
+        range: false
+        intervalMs: 15000
+        maxDataPoints: 43200
+    - refId: C
+      relativeTimeRange:
+        from: 0
+        to: 0
+      datasourceUid: __expr__
+      model:
+        refId: C
+        type: threshold
+        expression: A
+        conditions:
+        - type: query
+          evaluator:
+            type: gt
+            params:
+            - 85
+          operator:
+            type: and
+          query:
+            params:
+            - C
+          reducer:
+            type: last
+            params: []
+  - uid: docker-high-ram
+    title: Host memory pressure
+    condition: C
+    for: 5m
+    noDataState: NoData
+    execErrState: Error
+    labels:
+      severity: warning
+      project: docker-monitoring
+    annotations:
+      summary: Host memory usage above 90 percent
+      description: Inspect working sets and host processes before changing limits.
+    data:
+    - refId: A
+      relativeTimeRange:
+        from: 600
+        to: 0
+      datasourceUid: monitoring-prometheus
+      model:
+        refId: A
+        expr: 100 * (1 - node_memory_MemAvailable_bytes{job="node-exporter"} / node_memory_MemTotal_bytes{job="node-exporter"})
+        instant: true
+        range: false
+        intervalMs: 15000
+        maxDataPoints: 43200
+    - refId: C
+      relativeTimeRange:
+        from: 0
+        to: 0
+      datasourceUid: __expr__
+      model:
+        refId: C
+        type: threshold
+        expression: A
+        conditions:
+        - type: query
+          evaluator:
+            type: gt
+            params:
+            - 90
+          operator:
+            type: and
+          query:
+            params:
+            - C
+          reducer:
+            type: last
+            params: []
+  - uid: docker-disk-full
+    title: Filesystem almost full
+    condition: C
+    for: 5m
+    noDataState: NoData
+    execErrState: Error
+    labels:
+      severity: critical
+      project: docker-monitoring
+    annotations:
+      summary: Filesystem usage above 90 percent
+      description: Inspect filesystem usage. Do not delete Docker volumes without
+        checking ownership and backups.
+    data:
+    - refId: A
+      relativeTimeRange:
+        from: 600
+        to: 0
+      datasourceUid: monitoring-prometheus
+      model:
+        refId: A
+        expr: 100 * (1 - node_filesystem_avail_bytes{job="node-exporter",fstype!~"tmpfs|overlay|squashfs|nsfs|proc|sysfs|devtmpfs",mountpoint!~"/host/(proc|sys|dev|run)($|/).*"}
+          / node_filesystem_size_bytes{job="node-exporter",fstype!~"tmpfs|overlay|squashfs|nsfs|proc|sysfs|devtmpfs",mountpoint!~"/host/(proc|sys|dev|run)($|/).*"})
+        instant: true
+        range: false
+        intervalMs: 15000
+        maxDataPoints: 43200
+    - refId: C
+      relativeTimeRange:
+        from: 0
+        to: 0
+      datasourceUid: __expr__
+      model:
+        refId: C
+        type: threshold
+        expression: A
+        conditions:
+        - type: query
+          evaluator:
+            type: gt
+            params:
+            - 90
+          operator:
+            type: and
+          query:
+            params:
+            - C
+          reducer:
+            type: last
+            params: []

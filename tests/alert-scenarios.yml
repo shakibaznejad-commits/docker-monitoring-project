@@ -1,0 +1,51 @@
+# Used against Prometheus alert expressions derived from Grafana provisioning.
+rule_files:
+  - alert-rules.yml
+evaluation_interval: 1m
+tests:
+  - name: sustained failures trigger every provisioned threshold
+    interval: 1m
+    input_series:
+      - series: 'up{job="service-a",instance="service-a:8000"}'
+        values: '0x20'
+      - series: 'up{job="cadvisor",instance="cadvisor:8080"}'
+        values: '0x20'
+      - series: 'node_cpu_seconds_total{job="node-exporter",instance="host",mode="idle"}'
+        values: '0+1x20'
+      - series: 'node_memory_MemAvailable_bytes{job="node-exporter",instance="host"}'
+        values: '5x20'
+      - series: 'node_memory_MemTotal_bytes{job="node-exporter",instance="host"}'
+        values: '100x20'
+      - series: 'node_filesystem_avail_bytes{job="node-exporter",instance="host",device="/dev/sda",mountpoint="/",fstype="ext4"}'
+        values: '5x20'
+      - series: 'node_filesystem_size_bytes{job="node-exporter",instance="host",device="/dev/sda",mountpoint="/",fstype="ext4"}'
+        values: '100x20'
+      - series: 'http_responses_total{job="service-a",status_code="500"}'
+        values: '0+1x20'
+      - series: 'http_request_duration_seconds_bucket{job="service-a",le="2"}'
+        values: '0+10x20'
+      - series: 'http_request_duration_seconds_bucket{job="service-a",le="+Inf"}'
+        values: '0+10x20'
+  - name: healthy idle services do not trigger threshold alerts
+    interval: 1m
+    input_series:
+      - series: 'up{job="service-a",instance="service-a:8000"}'
+        values: '1x20'
+      - series: 'up{job="cadvisor",instance="cadvisor:8080"}'
+        values: '1x20'
+      - series: 'node_cpu_seconds_total{job="node-exporter",instance="host",mode="idle"}'
+        values: '0+60x20'
+      - series: 'node_memory_MemAvailable_bytes{job="node-exporter",instance="host"}'
+        values: '80x20'
+      - series: 'node_memory_MemTotal_bytes{job="node-exporter",instance="host"}'
+        values: '100x20'
+      - series: 'node_filesystem_avail_bytes{job="node-exporter",instance="host",device="/dev/sda",mountpoint="/",fstype="ext4"}'
+        values: '80x20'
+      - series: 'node_filesystem_size_bytes{job="node-exporter",instance="host",device="/dev/sda",mountpoint="/",fstype="ext4"}'
+        values: '100x20'
+      - series: 'http_responses_total{job="service-a",status_code="200"}'
+        values: '0+1x20'
+      - series: 'http_request_duration_seconds_bucket{job="service-a",le="0.1"}'
+        values: '0+10x20'
+      - series: 'http_request_duration_seconds_bucket{job="service-a",le="+Inf"}'
+        values: '0+10x20'

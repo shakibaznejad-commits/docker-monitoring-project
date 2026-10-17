@@ -17,9 +17,9 @@ scrape_configs:
   - job_name: "service-a"
     metrics_path: "/metrics"
     static_configs:
-      - targets: ["reverse-proxy-project-service-a-1:8000"]
+      - targets: ["service-a:8000"]
 
   - job_name: "service-b"
     metrics_path: "/metrics"
     static_configs:
-      - targets: ["reverse-proxy-project-service-b-1:8000"]
+      - targets: ["service-b:8000"]
